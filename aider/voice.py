@@ -1,11 +1,13 @@
 import math
 import os
 import queue
+import sys
 import tempfile
 import time
 import warnings
 
-from prompt_toolkit.shortcuts import prompt
+from prompt_toolkit.shortcuts import PromptSession
+from prompt_toolkit.output import create_output
 
 from aider.llm import litellm
 
@@ -40,7 +42,7 @@ class Voice:
         if sf is None:
             raise SoundDeviceError
         try:
-            print("Initializing sound device...")
+            print("Initializing sound device...", file=sys.stderr)
             import sounddevice as sd
 
             self.sd = sd
@@ -61,7 +63,7 @@ class Voice:
                         f" {available_inputs}"
                     )
 
-                print(f"Using input device: {device_name} (ID: {device_id})")
+                print(f"Using input device: {device_name} (ID: {device_id})", file=sys.stderr)
 
                 self.device_id = device_id
             else:
@@ -108,8 +110,8 @@ class Voice:
         except KeyboardInterrupt:
             return
         except SoundDeviceError as e:
-            print(f"Error: {e}")
-            print("Please ensure you have a working audio input device connected and try again.")
+            print(f"Error: {e}", file=sys.stderr)
+            print("Please ensure you have a working audio input device connected and try again.", file=sys.stderr)
             return
 
     def raw_record_and_transcribe(self, history, language):
@@ -129,10 +131,11 @@ class Voice:
         self.start_time = time.time()
 
         try:
+            session = PromptSession(output=create_output(sys.stderr))
             with self.sd.InputStream(
                 samplerate=sample_rate, channels=1, callback=self.callback, device=self.device_id
             ):
-                prompt(self.get_prompt, refresh_interval=0.1)
+                session.prompt(self.get_prompt, refresh_interval=0.1)
         except self.sd.PortAudioError as err:
             raise SoundDeviceError(f"Error accessing audio input device: {err}")
 
@@ -154,14 +157,13 @@ class Voice:
                     model="whisper-1", file=fh, prompt=history, language=language
                 )
             except Exception as err:
-                print(f"Unable to transcribe {filename}: {err}")
+                print(f"Unable to transcribe {filename}: {err}", file=sys.stderr)
                 return
 
         if self.audio_format != "wav":
             os.remove(filename)
 
-        text = transcript.text
-        return text
+        return transcript.text
 
 
 if __name__ == "__main__":
