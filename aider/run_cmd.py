@@ -47,11 +47,13 @@ def run_cmd_subprocess(command, verbose=False, cwd=None, encoding=sys.stdout.enc
         shell = os.environ.get("SHELL", "/bin/sh")
         parent_process = None
 
-        # Determine the appropriate shell
+        # Determine the appropriate shell and add --norc for bash
         if platform.system() == "Windows":
             parent_process = get_windows_parent_process_name()
             if parent_process == "powershell.exe":
                 command = f"powershell -Command {command}"
+        elif "bash" in shell:
+            command = f"bash --norc -c {command}"
 
         if verbose:
             print("Running command:", command)
@@ -110,10 +112,13 @@ def run_cmd_pexpect(command, verbose=False, cwd=None):
             print("With shell:", shell)
 
         if os.path.exists(shell):
-            # Use the shell from SHELL environment variable
+            # Use the shell from SHELL environment variable with --norc for bash
             if verbose:
                 print("Running pexpect.spawn with shell:", shell)
-            child = pexpect.spawn(shell, args=["-i", "-c", command], encoding="utf-8", cwd=cwd)
+            if "bash" in shell:
+                child = pexpect.spawn("bash", args=["--norc", "-i", "-c", command], encoding="utf-8", cwd=cwd)
+            else:
+                child = pexpect.spawn(shell, args=["-i", "-c", command], encoding="utf-8", cwd=cwd)
         else:
             # Fall back to spawning the command directly
             if verbose:
